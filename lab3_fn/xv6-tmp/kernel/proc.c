@@ -298,7 +298,7 @@ kfork(void)
   acquire(&np->lock);
   np->state = RUNNABLE;
   release(&np->lock);
-  p->priority = 20;
+  p->nice = 20;
 
 
   return pid;
@@ -695,7 +695,7 @@ set_priority_by_pid(int pid, int prio)
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
     if(p->pid == pid){
-      p->priority = prio;
+      p->nice = prio;
       release(&p->lock);
       return 0;
     }
@@ -711,11 +711,32 @@ get_priority_by_pid(int pid)
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
     if(p->pid == pid){
-      int prio = p->priority;
+      int prio = p->nice;
       release(&p->lock);
       return prio;
     }
     release(&p->lock);
   }
   return -1;
+}
+
+// current process status
+int 
+cps(void)
+{
+	struct proc *p;
+	
+	// Loop over process table looking for process with pid
+
+	printf("name \t pid \t state \t priority \n");
+	for(p = proc; p < &proc[NPROC]; p++){
+		if(p->state == SLEEPING)
+			printf("%s \t %d \t SLEEEPING \t %d \n", p->name, p->pid, p->nice);
+		else if(p->state == RUNNING)
+			printf("%s \t %d \t RUNNING \t %d \n", p->name, p->pid, p->nice);
+		else if(p->state == RUNNABLE)
+			printf("%s \t %d \t RUNNABLE \t %d \n", p->name, p->pid, p->nice);	
+	}
+	
+	return 22;
 }

@@ -127,3 +127,9 @@ sys_get_priority(void)
 
     return get_priority_by_pid(pid);
 }
+
+uint64
+sys_cps(void)
+{
+  return cps(); // current process status
+} 

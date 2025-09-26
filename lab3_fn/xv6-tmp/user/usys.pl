@@ -44,3 +44,4 @@ entry("pause");
 entry("uptime");
 entry("set_priority");
 entry("get_priority");
+entry("cps");
