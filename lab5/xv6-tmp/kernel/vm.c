@@ -484,3 +484,27 @@ ismapped(pagetable_t pagetable, uint64 va)
   }
   return 0;
 }
+
+int
+uvmcopy_cowfork(pagetable_t old, pagetable_t new, uint64 sz)
+{
+  pte_t *pte;
+  uint64 pa, i;
+  uint flags;
+
+  for(i = 0; i < sz; i += PGSIZE){
+    if((pte = walk(old, i, 0)) == 0)
+      continue;   // page table entry hasn't been allocated
+    if((*pte & PTE_V) == 0)
+      continue;   // physical page hasn't been allocated
+    pa = PTE2PA(*pte);
+    flags = PTE_FLAGS(*pte);
+
+    // set both old and new pte to read-only
+    *pte &= ~PTE_W;
+    if(mappages(new, i, PGSIZE, pa, (flags & ~PTE_W)) != 0){
+      return -1;
+    }
+  }
+  return 0;
+}
