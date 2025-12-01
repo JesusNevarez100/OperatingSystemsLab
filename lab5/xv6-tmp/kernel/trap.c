@@ -44,7 +44,7 @@ usertrap(void)
 
   // send interrupts and exceptions to kerneltrap(),
   // since we're now in the kernel.
-  w_stvec((uint64)kernelvec);  //DOC: kernelvec
+  w_stvec((uint64)kernelvec);
 
   struct proc *p = myproc();
   
@@ -53,7 +53,7 @@ usertrap(void)
   
   if(r_scause() == 8){
     // system call
-
+    
     if(killed(p))
       kexit(-1);
 
@@ -66,14 +66,29 @@ usertrap(void)
     intr_on();
 
     syscall();
-  } else if((which_dev = devintr()) != 0){
-    // ok
-  } else if((r_scause() == 15 || r_scause() == 13) &&
-            vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1 : 0) != 0) {
-    // page fault on lazily-allocated page
-  } else {
-    printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
+} else if((which_dev = devintr()) != 0){
+  // ok
+} else if(r_scause() == 15 || r_scause() == 13) {
+  // Page fault (15 = store page fault, 13 = load page fault)
+  uint64 va = r_stval();
+  
+  // Try to handle as COW fault first (for write faults)
+  if(r_scause() == 15 && cowpage(p->pagetable, va) == 0) {
+    // Successfully handled COW fault
+  } 
+  // If COW didn't handle it, try lazy allocation
+  else if(vmfault(p->pagetable, va, r_scause() == 13) != 0) {
+    // Successfully handled lazy allocation
+  }
+  else {
+    // Neither COW nor lazy allocation could handle it - kill process
+    printf("usertrap(): unexpected scause %ld pid=%d\n", r_scause(), p->pid);
+    printf("            sepc=%lx stval=%lx\n", r_sepc(), r_stval());
+    setkilled(p);
+  }
+} else {
+    printf("usertrap(): unexpected scause %ld pid=%d\n", r_scause(), p->pid);
+    printf("            sepc=%lx stval=%lx\n", r_sepc(), r_stval());
     setkilled(p);
   }
 

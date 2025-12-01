@@ -1,139 +1,197 @@
-// kernel/kalloc.c
-#include "types.h"
-#include "defs.h"
-#include "param.h"
-#include "memlayout.h"
-#include "riscv.h"
-#include "spinlock.h"
+//
+// tests for copy-on-write fork() assignment.
+//
 
-extern char end[]; // first address after kernel
-static struct run *freelist;
+#include "kernel/types.h"
+#include "kernel/memlayout.h"
+#include "user/user.h"
 
-struct {
-  struct spinlock lock;
-} kmem;
-
-static struct spinlock pgref_lock;
-static int *pageref;   // page reference counts
-static uint64 npage;   // number of pages we track
-
-// convert physical address to index in pageref
-#define PA2IDX(pa) (((uint64)(pa) - KERNBASE) / PGSIZE)
-
+// allocate more than half of physical memory,
+// then fork. this will fail in the default
+// kernel, which does not support copy-on-write.
 void
-kinit()
+simpletest()
 {
-  initlock(&kmem.lock, "kmem");
-  initlock(&pgref_lock, "pgref");
+  uint64 phys_size = PHYSTOP - KERNBASE;
+  int sz = (phys_size / 3) * 2;
 
-  // initialize page refcounts array
-  // compute maximum physical pages between 'end' and PHYSTOP
-  uint64 start_pa = (uint64)PGROUNDUP((uint64)end);
-  // number of pages we track from KERNBASE to PHYSTOP
-  // note: on many xv6 setups, KERNBASE == the base physical mapping constant
-  npage = (PHYSTOP - KERNBASE) / PGSIZE;
-  pageref = (int*)kalloc(); // temporarily use kalloc memory to hold array pointer?
-  // safer: allocate pageref with a static array? but easier: use kalloc to get one page for pageref storage
-  // if you prefer static: static int pageref[MAXPAGES]; but size depends on PHYSTOP.
-  // We'll allocate one page to hold the array and clear it.
-  if(!pageref) panic("kinit: pageref alloc failed");
-  memset(pageref, 0, PGSIZE);
-  freerange(start_pa, (void*)PHYSTOP);
-}
-
-// helper to increment page refcount for physical page pa
-void
-page_ref_inc(uint64 pa)
-{
-  acquire(&pgref_lock);
-  uint64 idx = PA2IDX(pa);
-  if(idx < npage) pageref[idx]++;
-  else panic("page_ref_inc: bad pa");
-  release(&pgref_lock);
-}
-
-// helper to decrement page refcount for physical page pa; returns new count
-int
-page_ref_dec(uint64 pa)
-{
-  acquire(&pgref_lock);
-  uint64 idx = PA2IDX(pa);
-  if(idx >= npage) panic("page_ref_dec: bad pa");
-  if(pageref[idx] <= 0) panic("page_ref_dec: underflow");
-  pageref[idx]--;
-  int v = pageref[idx];
-  release(&pgref_lock);
-  return v;
-}
-
-// helper to get current refcount
-int
-page_ref_count(uint64 pa)
-{
-  acquire(&pgref_lock);
-  uint64 idx = PA2IDX(pa);
-  if(idx >= npage) panic("page_ref_count: bad pa");
-  int v = pageref[idx];
-  release(&pgref_lock);
-  return v;
-}
-
-// modify kalloc: when it returns a fresh page, set its refcount to 1
-void*
-kalloc(void)
-{
-  struct run *r;
-
-  acquire(&kmem.lock);
-  r = freelist;
-  if(r)
-    freelist = r->next;
-  release(&kmem.lock);
-
-  if(r) {
-    // clear page
-    memset((char*)r, 5, PGSIZE);
-    // compute pa and set refcount = 1
-    uint64 pa = (uint64)r;
-    acquire(&pgref_lock);
-    uint64 idx = PA2IDX(pa);
-    if(idx >= npage) panic("kalloc: bad pa");
-    pageref[idx] = 1;
-    release(&pgref_lock);
-  }
-  return (void*)r;
-}
-
-// modify kfree: only put back onto freelist when refcount becomes zero
-void
-kfree(void *pa)
-{
-  struct run *r;
-
-  if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
-    panic("kfree");
-
-  // decrement refcount and only free if it hits 0
-  acquire(&pgref_lock);
-  uint64 idx = PA2IDX((uint64)pa);
-  if(idx >= npage) panic("kfree: bad pa idx");
-  if(pageref[idx] <= 0) panic("kfree: freeing free page");
-  pageref[idx]--;
-  int v = pageref[idx];
-  release(&pgref_lock);
-
-  if(v > 0) {
-    // still referenced by others — don't free physical page
-    return;
+  printf("simple: ");
+  
+  char *p = sbrk(sz);
+  if(p == (char*)0xffffffffffffffffL){
+    printf("sbrk(%d) failed\n", sz);
+    exit(-1);
   }
 
-  // actually free page
-  memset(pa, 1, PGSIZE);
+  for(char *q = p; q < p + sz; q += 4096){
+    *(int*)q = getpid();
+  }
 
-  r = (struct run*)pa;
+  int pid = fork();
+  if(pid < 0){
+    printf("fork() failed\n");
+    exit(-1);
+  }
 
-  acquire(&kmem.lock);
-  r->next = freelist;
-  freelist = r;
-  release(&kmem.lock);
+  if(pid == 0)
+    exit(0);
+
+  wait(0);
+
+  if(sbrk(-sz) == (char*)0xffffffffffffffffL){
+    printf("sbrk(-%d) failed\n", sz);
+    exit(-1);
+  }
+
+  printf("ok\n");
+}
+
+// three processes all write COW memory.
+// this causes more than half of physical memory
+// to be allocated, so it also checks whether
+// copied pages are freed.
+void
+threetest()
+{
+  uint64 phys_size = PHYSTOP - KERNBASE;
+  int sz = phys_size / 4;
+  int pid1, pid2;
+
+  printf("three: ");
+  
+  char *p = sbrk(sz);
+  if(p == (char*)0xffffffffffffffffL){
+    printf("sbrk(%d) failed\n", sz);
+    exit(-1);
+  }
+
+  pid1 = fork();
+  if(pid1 < 0){
+    printf("fork failed\n");
+    exit(-1);
+  }
+  if(pid1 == 0){
+    pid2 = fork();
+    if(pid2 < 0){
+      printf("fork failed");
+      exit(-1);
+    }
+    if(pid2 == 0){
+      for(char *q = p; q < p + (sz/5)*4; q += 4096){
+        *(int*)q = getpid();
+      }
+      for(char *q = p; q < p + (sz/5)*4; q += 4096){
+        if(*(int*)q != getpid()){
+          printf("wrong content\n");
+          exit(-1);
+        }
+      }
+      exit(-1);
+    }
+    for(char *q = p; q < p + (sz/2); q += 4096){
+      *(int*)q = 9999;
+    }
+    exit(0);
+  }
+
+  for(char *q = p; q < p + sz; q += 4096){
+    *(int*)q = getpid();
+  }
+
+  wait(0);
+
+  pause(1);
+
+  for(char *q = p; q < p + sz; q += 4096){
+    if(*(int*)q != getpid()){
+      printf("wrong content\n");
+      exit(-1);
+    }
+  }
+
+  if(sbrk(-sz) == (char*)0xffffffffffffffffL){
+    printf("sbrk(-%d) failed\n", sz);
+    exit(-1);
+  }
+
+  printf("ok\n");
+}
+
+char junk1[4096];
+int fds[2];
+char junk2[4096];
+char buf[4096];
+char junk3[4096];
+
+// test whether copyout() simulates COW faults.
+void
+filetest()
+{
+  printf("file: ");
+  
+  buf[0] = 99;
+
+  for(int i = 0; i < 4; i++){
+    if(pipe(fds) != 0){
+      printf("pipe() failed\n");
+      exit(-1);
+    }
+    int pid = fork();
+    if(pid < 0){
+      printf("fork failed\n");
+      exit(-1);
+    }
+    if(pid == 0){
+      pause(1);
+      if(read(fds[0], buf, sizeof(i)) != sizeof(i)){
+        printf("error: read failed\n");
+        exit(1);
+      }
+      pause(1);
+      int j = *(int*)buf;
+      if(j != i){
+        printf("error: read the wrong value\n");
+        exit(1);
+      }
+      exit(0);
+    }
+    if(write(fds[1], &i, sizeof(i)) != sizeof(i)){
+      printf("error: write failed\n");
+      exit(-1);
+    }
+  }
+
+  int xstatus = 0;
+  for(int i = 0; i < 4; i++) {
+    wait(&xstatus);
+    if(xstatus != 0) {
+      exit(1);
+    }
+  }
+
+  if(buf[0] != 99){
+    printf("error: child overwrote parent\n");
+    exit(1);
+  }
+
+  printf("ok\n");
+}
+
+int
+main(int argc, char *argv[])
+{
+  simpletest();
+
+  // check that the first simpletest() freed the physical memory.
+  simpletest();
+
+  threetest();
+  threetest();
+  threetest();
+
+  filetest();
+
+  printf("ALL COW TESTS PASSED\n");
+
+  exit(0);
 }

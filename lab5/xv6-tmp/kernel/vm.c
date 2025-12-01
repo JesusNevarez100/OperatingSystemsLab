@@ -17,6 +17,8 @@ extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
 
+
+
 // Make a direct-map page table for the kernel.
 pagetable_t
 kvmmake(void)
@@ -349,18 +351,30 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     va0 = PGROUNDDOWN(dstva);
     if(va0 >= MAXVA)
       return -1;
-  
+
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0) {
+      // Page not mapped - try vmfault for lazy allocation
       if((pa0 = vmfault(pagetable, va0, 0)) == 0) {
         return -1;
       }
+    } else {
+      // Page exists - check if it's a COW page that needs handling
+      pte = walk(pagetable, va0, 0);
+      if(pte && (*pte & PTE_COW)) {
+        // Handle COW page
+        if(cowpage(pagetable, va0) < 0)
+          return -1;
+        // Get the address again after COW handling
+        pa0 = walkaddr(pagetable, va0);
+        if(pa0 == 0)
+          return -1;
+      }
+      
+      // Check if page is writable
+      if(pte && (*pte & PTE_W) == 0)
+        return -1;
     }
-
-    pte = walk(pagetable, va0, 0);
-    // forbid copyout over read-only user text pages.
-    if((*pte & PTE_W) == 0)
-      return -1;
       
     n = PGSIZE - (dstva - va0);
     if(n > len)
@@ -506,5 +520,98 @@ uvmcopy_cowfork(pagetable_t old, pagetable_t new, uint64 sz)
       return -1;
     }
   }
+  return 0;
+}
+
+int
+uvmcopy_cow(pagetable_t old, pagetable_t new, uint64 sz)
+{
+  pte_t *pte;
+  uint64 pa, i;
+  uint flags;
+
+  for(i = 0; i < sz; i += PGSIZE){
+    if((pte = walk(old, i, 0)) == 0)
+      continue;   // page table entry hasn't been allocated
+    if((*pte & PTE_V) == 0)
+      continue;   // physical page hasn't been allocated
+    
+    pa = PTE2PA(*pte);
+    flags = PTE_FLAGS(*pte);
+    
+    // If page is writable, mark as COW and remove write permission
+    if(flags & PTE_W) {
+      flags = (flags & ~PTE_W) | PTE_COW;
+      *pte = PA2PTE(pa) | flags;  // Update parent PTE
+    }
+    
+    // Map child to same physical page with same flags
+    if(mappages(new, i, PGSIZE, pa, flags) != 0){
+      goto err;
+    }
+    
+    // Increment reference count
+    krefpage((void*)pa);
+  }
+  
+  // Flush TLB after modifying parent's PTEs
+  sfence_vma();
+  
+  return 0;
+
+ err:
+  uvmunmap(new, 0, i / PGSIZE, 1);
+  return -1;
+}
+
+// Helper function to handle COW page fault
+int
+cowpage(pagetable_t pagetable, uint64 va)
+{
+  pte_t *pte;
+  uint64 pa, new_pa;
+  uint flags;
+
+  if(va >= MAXVA)
+    return -1;
+  
+  pte = walk(pagetable, va, 0);
+  if(pte == 0)
+    return -1;
+  if((*pte & PTE_V) == 0)
+    return -1;
+  if((*pte & PTE_U) == 0)
+    return -1;
+
+  // Check if it's a COW page
+  if(!(*pte & PTE_COW))
+    return -1;  // Not a COW page
+
+  pa = PTE2PA(*pte);
+  flags = PTE_FLAGS(*pte);
+
+  // Check if we're the only reference
+  if(kgetref((void*)pa) == 1) {
+    // Only one reference, just make it writable
+    *pte = PA2PTE(pa) | ((flags | PTE_W) & ~PTE_COW);
+    sfence_vma();  // ADD THIS - flush TLB
+    return 0;
+  }
+
+  // Allocate new page
+  if((new_pa = (uint64)kalloc()) == 0)
+    return -1;
+
+  // Copy old page to new page
+  memmove((void*)new_pa, (void*)pa, PGSIZE);
+
+  // Update PTE to point to new page, make writable, clear COW
+  *pte = PA2PTE(new_pa) | ((flags | PTE_W) & ~PTE_COW);
+  
+  sfence_vma();  // ADD THIS - flush TLB
+
+  // Decrement reference count on old page
+  kfree((void*)pa);
+
   return 0;
 }
