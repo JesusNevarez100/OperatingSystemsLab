@@ -82,8 +82,6 @@ usertrap(void)
   }
   else {
     // Neither COW nor lazy allocation could handle it - kill process
-    printf("usertrap(): unexpected scause %ld pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=%lx stval=%lx\n", r_sepc(), r_stval());
     setkilled(p);
   }
 } else {
