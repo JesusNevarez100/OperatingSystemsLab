@@ -47,6 +47,7 @@ freerange(void *pa_start, void *pa_end)
   }
 }
 
+
 // Free the page of physical memory pointed at by pa,
 // which normally should have been returned by a
 // call to kalloc().  (The exception is when
@@ -66,7 +67,7 @@ kfree(void *pa)
     panic("kfree: refcount < 1");
   
   pageref.refcount[idx]--;
-  
+  // printf("kfree: pa=%p idx=%d ref=%d\n", pa, idx, pageref.refcount[idx]);
   if(pageref.refcount[idx] > 0) {
     release(&pageref.lock);
     return;  // Still references, don't free
@@ -100,11 +101,13 @@ kalloc(void)
 
   if(r) {
     memset((char*)r, 5, PGSIZE); // fill with junk
-    
+
     // Set reference count to 1
     acquire(&pageref.lock);
     pageref.refcount[PA2IDX((uint64)r)] = 1;
     release(&pageref.lock);
+
+    // printf("kalloc: pa=%p\n", r);
   }
 
   return (void*)r;

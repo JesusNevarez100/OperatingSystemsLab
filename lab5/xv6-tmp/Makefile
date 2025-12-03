@@ -144,6 +144,8 @@ UPROGS=\
 	$U/_forphan\
 	$U/_dorphan\
 	$U/_cowtest\
+	$U/_cowread\
+	$U/_cowwrite1\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

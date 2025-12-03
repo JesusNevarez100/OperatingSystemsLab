@@ -1,0 +1,15 @@
+Start Time Lab
+Date    Time    Spent   Part    Work completed
+----    -----   ----    ----    --------------
+12/01   6pm     3hr     Testing     looked over cow implementation
+12/02   6pm     1hr     Testing     Cow Behavior
+12/02   7pm     1hr     Testing     Refcount testing
+12/02   8pm     1hr     Testing     page-fault handler correctness
+12/02   9pm     1hr     Testing     copy out handling of cow pages
+12/02   10pm    1hr     Testing     memory pressure behavior
+12/02   11pm    1hr     Cleaning    Sanity checking
+12/02   12pm    1hr     Report      Finished summary
+12/03   1am     1hr     Checks      Checking   
+
+
+Summary
