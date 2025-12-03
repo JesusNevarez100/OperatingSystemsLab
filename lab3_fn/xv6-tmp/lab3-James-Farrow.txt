@@ -1,0 +1,17 @@
+Start Time Lab
+Date Time Spent Part Work completed
+---- ----- ---- ---- ---------
+8/26 4:05 00:10 N/A Read though the lab manuel, devolped plan of action
+8/27 5:05 00:30 1 Completed first exercise (myapp.c)
+8/29 3:05 03:00 2 Completed second exercise (wc_new.c)
+9/1 10:05 00:45 3 Completed 3rd exercise (txtmsg.c)
+
+-----
+04:25 TOTAL time spent
+
+
+I added the cps() system call in the kernel and created the ps user 
+program so that processes can be listed with their name, PID, state, 
+and priority. 
+I wrote the setnice system call and the nice user program so we can 
+adjust process priorities from user space.
