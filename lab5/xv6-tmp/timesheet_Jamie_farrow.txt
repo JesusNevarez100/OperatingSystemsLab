@@ -1,0 +1,13 @@
+     Start Time Lab
+Date Time Spent Part Work completed
+---- ----- ---- ---- ---------
+11/24 16:00 1:00 N/A Read Through lab report, set up xv6 to not be embedded, made one change for cowtest
+11/30 16:45 6:00  1  Edited files in X.c X.c X.c X.c and completed cow, and cowtests passes
+12/1  14:00 2:00  1  Edited files in X.c X.c X.c X.c for usertests, but error printing message it still and issue
+12/2  18:00 2:30  1  Fixed print issue, error is gone, and usertests -q passes without issue!
+
+-----
+04:25 TOTAL time spent
+
+
+Summary
