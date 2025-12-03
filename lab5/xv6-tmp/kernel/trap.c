@@ -68,7 +68,7 @@ usertrap(void)
     syscall();
 } else if((which_dev = devintr()) != 0){
   // ok
-} else if(r_scause() == 15 || r_scause() == 13) {
+} else if(r_scause() == 15 || r_scause() == 13 || r_scause() == 12  ) {
   // Page fault (15 = store page fault, 13 = load page fault)
   uint64 va = r_stval();
   
