@@ -1,0 +1,8 @@
+Files edited
+kernel/riscv.h - Added PTE_COW flag
+kernel/kalloc.c - Added reference counting for physical pages
+kernel/defs.h - Added function declarations
+kernel/vm.c - Implemented uvmcopy_cow(), cowpage(), and updated copyout()
+kernel/proc.c - Changed fork to use uvmcopy_cow()
+kernel/trap.c - Added COW and lazy allocation page fault handling for usertests
+user/cowtest.c - Fixed include paths
