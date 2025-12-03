@@ -145,6 +145,8 @@ UPROGS=\
 	$U/_testprio\
 	$U/_ps\
 	$U/_nice\
+	$U/_lab3test\
+	$U/_lab3test2\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

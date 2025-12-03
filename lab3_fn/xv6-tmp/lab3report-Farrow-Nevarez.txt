@@ -1,0 +1,108 @@
+
+Task 1
+$ ps
+name 	 pid 	 state 	     priority 
+init 	 1 	     SLEEEPING 	 20 
+sh 	     2 	     SLEEEPING 	 20 
+ps 	     3 	     RUNNING 	 0 
+$ 
+
+Task 2
+$ lab3test 3 &
+$ PareCnht 4i lcreating child 5 creadt 5ed
+
+Parent 4C crheaitinlg dchi ld 6
+Pa6 crernt e4ate dChildc r7
+ created
+eating child 7
+
+$ ps
+name	 pid	 state	 priority
+init	 1	 SLEEPING	 20
+sh	 2	 SLEEPING	 20
+lab3test	 5	 RUNNABLE	 20
+ps	 8	 RUNNING	 20
+lab3test	 6	 RUNNING	 0
+lab3test	 7	 RUNNING	 0
+$ nice 5 10
+$ nice 6 30
+$ ps
+name	 pid	 state	 priority
+init	 1	 SLEEPING	 20
+sh	 2	 SLEEPING	 20
+lab3test	 5	 RUNNING	 10
+ps	 11	 RUNNING	 20
+lab3test	 6	 RUNNING	 30
+lab3test	 7	 RUNNABLE	 0
+$ 
+
+Task 3
+$ lab3test2 3 &
+Parent $25C  hcreaild 2t6 createing childd 2
+6
+ps
+name	 pid	 state	 priority
+init	 1	 SLEEPING	 20
+sh	 2	 SLEEPING	 20
+ps	 27	 RUNNING	 20
+lab3test2	 25	 SLEEPING	 20
+lab3test2	 26	 RUNNING	 20
+$ PareChnt 2i5ld  2crea8ti ncrg eated
+child 28
+ps
+name	 pid	 state	 priority
+init	 1	 SLEEPING	 20
+sh	 2	 SLEEPING	 20
+lab3test2	 28	 RUNNING	 20
+lab3test2	 25	 SLEEPING	 20
+ps	 29	 RUNNING	 20
+$ ParenCt 25 creahtiinldg  ch3i0l d 30c
+reated
+ps
+name	 pid	 state	 priority
+init	 1	 SLEEPING	 20
+sh	 2	 SLEEPING	 20
+lab3test2	 30	 RUNNING	 20
+lab3test2	 25	 SLEEPING	 20
+ps	 31	 RUNNING	 20
+$ 
+
+Task 4
+$ lab3test 3 &
+$ ParCehildnt  223 c4r ecartieng child 24
+aParent 23 cretaed
+tingC child h25
+Paild rent 23 creatinCgh chilild 26d 26
+2 cr5e acreted
+ated
+ps
+name		 pid	 state	 priority
+init		 1	 RUNNABLE	 39
+sh		 2	 SLEEPING	 20
+lab3test		 24	 RUNNABLE	 20
+lab3test		 23	 ??	 20
+lab3test		 25	 RUNNING	 0
+lab3test		 26	 RUNNING	 0
+ps		 27	 RUNNING	 0
+$ ps   
+name		 pid	 state	 priority
+init		 1	 RUNNABLE	 39
+sh		 2	 SLEEPING	 20
+lab3test		 24	 RUNNABLE	 20
+lab3test		 23	 ??	 20
+lab3test		 25	 RUNNING	 0
+lab3test		 26	 RUNNING	 0
+ps		 28	 RUNNING	 0
+$ nice 24 35
+$ nice 25 40
+$ ps
+name		 pid	 state	 priority
+init		 1	 SLEEPING	 39
+sh		 2	 SLEEPING	 20
+lab3test		 24	 RUNNING	 35
+ps		 31	 RUNNING	 20
+lab3test		 25	 RUNNABLE	 39
+lab3test		 26	 RUNNING	 0
+$ Child 26 terminated
+Child 25 terminated
+Child 24 terminated

@@ -1,0 +1,15 @@
+Start Time Lab
+Date Time Spent Part Work completed
+---- ----- ---- ---- ---------
+09/30 6:00 2    4    low nice value scheduler
+09/30 9:00 0.5    proc.c aps() printing method clean up
+0/30  11:00 2   testing, lab3test2.c wait for child.
+
+-----
+04:30 TOTAL time spent
+
+
+Summary
+Was having trouble making output look good.
+Structure chage for scheduler from round robin to low priority nice values
+was straight forward. Can't wait to look at the feed back.
